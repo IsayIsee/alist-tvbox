@@ -57,7 +57,6 @@ COPY data/version /app_version
 
 # 4. 拷贝 Java 应用 [cite: 5]
 COPY target/atv ./
-COPY target/alist-tvbox-1.0.jar app.jar
 
 RUN chmod +x /entrypoint.sh
 
