@@ -46,7 +46,8 @@ COPY data/version /app_version
 
 # 4. 拷贝 Java 应用 [cite: 5]
 COPY target/atv ./
-COPY scripts/h2-2.3.232.jar /h2.jar
+COPY scripts/h2-2.1.214.jar /
+COPY scripts/h2-2.3.232.jar /
 
 RUN chmod +x /entrypoint.sh
 

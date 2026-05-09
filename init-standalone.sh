@@ -75,25 +75,27 @@ init() {
 }
 
 upgrade_h2() {
-  if [ -f /data/h2.version.txt ]; then
+  if [ -f /data/h2.version.txt ]; then1
     return
   fi
   echo "try to upgrade database"
   file=/opt/atv/data/data
   [ -f /data/atv.mv.db ] && file=/data/atv
   echo "export database $file"
-  /jre/bin/java -cp /h2.jar org.h2.tools.RunScript \
+  /jre/bin/java -cp /h2-2.1.214.jar org.h2.tools.Script \
   -url jdbc:h2:file:$file \
   -user sa -password password \
   -script backup.sql && \
-  echo "import database" && \
-  rm -f ${file}.mv.db ${file}.trace.db && \
-  /jre/bin/java -cp /opt/atv/BOOT-INF/lib/h2.jar org.h2.tools.RunScript \
-  -url jdbc:h2:file:$file \
-  -user sa -password password \
-  -script backup.sql && \
-  echo "upgraded h2 to 2.3.232" && \
-  echo "2.3.232" > /data/h2.version.txt
+  if [ ! -f backup.sql ]; then
+    echo "import database" && \
+    rm -f ${file}.mv.db ${file}.trace.db && \
+    /jre/bin/java -cp /h2-3.232.jar org.h2.tools.RunScript org.h2.tools.RunScript \
+    -url jdbc:h2:file:$file \
+    -user sa -password password \
+    -script backup.sql && \
+    echo "upgraded h2 to 2.3.232" && \
+    echo "2.3.232" > /data/h2.version.txt
+  fi
 }
 
 echo "Install mode: $INSTALL"
