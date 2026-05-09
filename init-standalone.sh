@@ -72,6 +72,7 @@ init() {
 
   update_movie
   echo "1" > /opt/alist/data/.init
+  echo "初始化完成"
 }
 
 upgrade_h2() {
@@ -100,7 +101,6 @@ upgrade_h2() {
 
 echo "Install mode: $INSTALL"
 cat /app_version
-version=$(head -n1 /docker.version)
 uname -mor
 date
 

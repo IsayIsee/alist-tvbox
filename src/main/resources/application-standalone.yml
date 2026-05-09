@@ -14,6 +14,6 @@ logging:
 app:
   sites:
     - name: 本地
-      url: ${ALIST_URL:http://127.0.0.1:5244}
+      url: ${ALIST_URL:http://172.16.2.250:5244}
       version: 3
       searchable: true
