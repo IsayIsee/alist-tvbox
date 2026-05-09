@@ -14,7 +14,7 @@ RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
         wget \
         sqlite3 \
         nginx \
-        busybox-extras \
+        busybox \
         curl \
         ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/* && \
@@ -23,7 +23,7 @@ RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
              /etc/nginx/http.d \
              /data/index && \
     mkdir -p /jre/bin && ln -s /usr/bin/java /jre/bin/java && \
-    ln -sf $(which busybox-extras) /bin/busybox-extras
+    ln -sf $(which busybox) /bin/busybox-extras
 
 WORKDIR /opt/atv/
 
