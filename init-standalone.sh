@@ -42,10 +42,18 @@ init() {
   mv whatsnew /www/cgi-bin/whatsnew
   mv header.html /www/cgi-bin/header.html
 
+  [ -f /opt/alist/data/config.json ] || cp /alist.json /opt/alist/data/config.json
+  NEW_SECRET=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 16)
+  sed -i "s/Y3JIG4vxT22wn9cq/${NEW_SECRET}/" /opt/alist/data/config.json
+  sed -i "s/127.0.0.1/0.0.0.0/" /opt/alist/data/config.json
+  sed '/location \/dav/i\    location ~* alist {\n        deny all;\n    }\n' nginx.conf >/etc/nginx/http.d/default.conf
+
   mv mobi.tgz /www/mobi.tgz
   cd /www/
   tar zxf mobi.tgz
   rm mobi.tgz
+
+  sqlite3 /opt/alist/data/data.db ".read /update.sql"
 
   wget -T 30 -t 2 ${gh_proxy}https://raw.githubusercontent.com/xiaoyaliu00/data/main/tvbox.zip -O tvbox.zip || \
   cp /tvbox.zip ./
@@ -80,7 +88,7 @@ upgrade_h2() {
   -script backup.sql && \
   echo "import database" && \
   rm -f ${file}.mv.db ${file}.trace.db && \
-  /jre/bin/java -cp /h2.jar org.h2.tools.RunScript \
+  /jre/bin/java -cp /opt/atv/BOOT-INF/lib/h2.jar org.h2.tools.RunScript \
   -url jdbc:h2:file:$file \
   -user sa -password password \
   -script backup.sql && \
@@ -90,6 +98,7 @@ upgrade_h2() {
 
 echo "Install mode: $INSTALL"
 cat /app_version
+version=$(head -n1 /docker.version)
 uname -mor
 date
 
@@ -127,6 +136,38 @@ fi
 cd /tmp/
 
 wget -T 30 -t 2 ${gh_proxy}https://raw.githubusercontent.com/xiaoyaliu00/data/main/version.txt -O version.txt
+
+wget -T 30 -t 2 ${gh_proxy}https://raw.githubusercontent.com/xiaoyaliu00/data/main/update.zip -O update.zip
+
+if [ ! -f update.zip ]; then
+  echo "Failed to download update database file, the database upgrade process has aborted"
+else
+  unzip -o -q -P abcd update.zip
+  entries=$(grep -c 'INSERT INTO x_storages' update.sql)
+  echo "$(date) total $entries records"
+  if [ -f /opt/alist/data/data.db-shm ]; then
+    rm /opt/alist/data/data.db-shm
+  fi
+
+  if [ -f /opt/alist/data/data.db-wal ]; then
+    rm /opt/alist/data/data.db-wal
+  fi
+
+  sed -i 's/v3.9.2/v3.44.0/' update.sql
+  sed -i 's/pass_code/share_pwd/' update.sql
+
+  sqlite3 /opt/alist/data/data.db <<EOF
+drop table x_storages;
+drop table x_meta;
+drop table x_setting_items;
+.read update.sql
+EOF
+
+  echo "$(date) update database successfully"
+  opentoken_url=$(cat opentoken_url.txt)
+  sed -i "s#https://api.nn.ci/alist/ali_open/token#$opentoken_url#" /opt/alist/data/config.json
+  rm -f update.zip update.sql opentoken_url.txt
+fi
 
 if [ ! -f version.txt ]; then
   echo "Failed to download version.txt file, the index file upgrade process has aborted"
@@ -178,3 +219,8 @@ if [ "$LOCAL" != "$REMOTE" ]; then
   cat /data/index/index.share.txt >> /data/index/index.txt
 fi
 rm -f /tmp/index.share.txt
+
+app_ver=$(head -n1 /app_version)
+sqlite3 /opt/alist/data/data.db <<EOF
+INSERT INTO x_storages VALUES(99999,'/©️ $version-$app_ver',0,'Alias',30,'work','{"paths":"/每日更新"}','','2022-11-12 13:05:12+00:00',0,'','','',0,'302_redirect','');
+EOF
