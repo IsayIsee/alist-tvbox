@@ -69,7 +69,7 @@ public class SiteService {
                 .build();
     }
 
-    @Value("${OpenListToken:}")
+    @Value("${OPENLIST_TOKEN:}")
     private String openListToken;
 
     @PostConstruct
