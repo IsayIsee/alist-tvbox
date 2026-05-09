@@ -31,7 +31,7 @@ WORKDIR /opt/atv/
 COPY config/alist.json /
 COPY scripts/index.sh /
 COPY entrypoint-standalone.sh /entrypoint.sh
-COPY init.sh /
+COPY init-standalone.sh /init.sh
 
 # 3. 拷贝数据文件 [cite: 5]
 COPY data/update.sql /
@@ -46,6 +46,7 @@ COPY data/version /app_version
 
 # 4. 拷贝 Java 应用 [cite: 5]
 COPY target/atv ./
+COPY scripts/h2-2.1.214.jar /
 
 RUN chmod +x /entrypoint.sh
 
