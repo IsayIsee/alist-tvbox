@@ -3,59 +3,6 @@
     <el-row>
       <el-col :xs="23" :sm="23" :md="23" :lg="11" :xl="11">
         <el-card class="box-card">
-          <template #header>
-            <div class="card-header">
-              <span>AList运行状态</span>
-              <div>
-                <el-button type="primary" v-if="store.aListStatus===0" @click="handleAList('start')">启动</el-button>
-                <el-button type="warning" v-if="store.aListStatus!==0" @click="handleAList('restart')">重启</el-button>
-                <el-button type="danger" v-if="store.aListStatus!==0" @click="handleAList('stop')">停止</el-button>
-              </div>
-            </div>
-          </template>
-          <el-switch
-            v-model="aListStarted"
-            inline-prompt
-            :disabled="true"
-            :active-text="store.aListStatus>=2?'运行中':'启动中'"
-            inactive-text="停止中"
-          />
-          <span class="hint" v-if="aListStartTime">启动时间：{{ formatTime(aListStartTime) }}</span>
-          <span class="hint warning" v-if="aListRestart">AList需要重启</span>
-          <el-progress
-            :percentage="percentage"
-            :stroke-width="15"
-            status="success"
-            striped
-            striped-flow
-            :duration="duration"
-            v-if="intervalId"
-          />
-        </el-card>
-
-        <el-card class="box-card" v-if="store.aListStatus">
-          <el-form :model="login" label-width="120px">
-            <el-form-item prop="token" label="强制登录AList">
-              <el-switch
-                v-model="login.enabled"
-                inline-prompt
-                active-text="开启"
-                inactive-text="关闭"
-              />
-            </el-form-item>
-            <el-form-item prop="username" label="用户名">
-              <el-input v-model="login.username"/>
-            </el-form-item>
-            <el-form-item prop="password" label="密码">
-              <el-input v-model="login.password" type="password" show-password/>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="updateLogin">保存</el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <el-card class="box-card">
           <el-form :model="form" label-width="120px">
             <el-form-item prop="enabledToken" label="安全订阅">
               <el-switch
@@ -87,7 +34,7 @@
           </el-form>
         </el-card>
 
-        <el-card class="box-card" v-if="dockerVersion||appVersion||aListVersion">
+        <el-card class="box-card" v-if="dockerVersion||appVersion">
           <template #header>
             <div class="card-header">
               <span>应用数据</span>
@@ -107,17 +54,6 @@
               最新版本：{{ appRemoteVersion }}，请重新运行安装脚本，升级应用。
             </el-tooltip>
             <div class="changelog" v-if="changelog">更新日志： {{ changelog }}</div>
-          </div>
-          <div v-if="aListVersion">AList版本：{{ aListVersion }}</div>
-          <div v-if="aListRemoteVersion&&aListRemoteVersion>aListVersion">
-            <el-tooltip
-              class="box-item"
-              effect="dark"
-              :content="tooltip"
-              placement="top"
-            >
-              最新版本：{{ aListRemoteVersion }}，请重新运行安装脚本，升级应用。
-            </el-tooltip>
           </div>
         </el-card>
 
@@ -209,10 +145,6 @@
           <el-button type="primary" @click="currentUserAgent">当前UA</el-button>
           <el-button type="primary" @click="randomUserAgent">随机UA</el-button>
         </el-form-item>
-        <el-form-item label="AList管理密码" v-if="!store.xiaoya">
-          <el-input v-model="atvPass" style="width: 160px" type="password" show-password/>
-          <el-button type="primary" class="hint" @click="resetAListPassword">重置</el-button>
-        </el-form-item>
         <el-form-item label="AList TvBox API Key">
           <el-input v-model="apiKey" style="width: 300px" type="password" readonly show-password/>
           <el-button type="primary" class="hint" @click="resetApiKey">重置</el-button>
@@ -272,15 +204,6 @@
               active-text="开启"
               inactive-text="关闭"
               @change="updateDebugLog"
-            />
-          </el-form-item>
-          <el-form-item label="开启AList调试模式">
-            <el-switch
-              v-model="aListDebug"
-              inline-prompt
-              active-text="开启"
-              inactive-text="关闭"
-              @change="updateAListDebug"
             />
           </el-form-item>
           <el-form-item label="夸克UC分享使用TV帐号">
@@ -356,7 +279,6 @@
           </el-form-item>
         </div>
         <el-form-item>
-          <el-button @click="resetAListToken">重置AList认证Token</el-button>
           <el-button @click="exportDatabase">导出数据库</el-button>
         </el-form-item>
       </el-form>
@@ -477,12 +399,6 @@ const updateToken = () => {
   })
 }
 
-const resetAListToken = () => {
-  axios.post('/api/alist/reset_token', {}).then(() => {
-    ElMessage.success('AList认证Token重置成功')
-  })
-}
-
 const updateOpenTokenUrl = () => {
   axios.post('/api/open-token-url', {
     url: openTokenUrl.value,
@@ -525,13 +441,6 @@ const resetApiKey = () => {
   })
 }
 
-const resetAListPassword = () => {
-  axios.post('/api/alist/password').then(({data}) => {
-    atvPass.value = data
-    ElMessage.success('重置成功，重启生效')
-  })
-}
-
 const updateDeleteDelayTime = () => {
   axios.post('/api/settings', {name: 'delete_delay_time', value: deleteDelayTime.value}).then(() => {
     ElMessage.success('更新成功')
@@ -571,12 +480,6 @@ const updateEnableHttps = () => {
 const updateDebugLog = () => {
   axios.post('/api/settings', {name: 'debug_log', value: debugLog.value}).then(() => {
     ElMessage.success('更新成功')
-  })
-}
-
-const updateAListDebug = () => {
-  axios.post('/api/settings', {name: 'alist_debug', value: aListDebug.value}).then(() => {
-    ElMessage.success('更新成功，重启生效')
   })
 }
 
@@ -630,13 +533,6 @@ const exportDatabase = () => {
 const updateScheduleTime = () => {
   axios.post('/api/schedule', scheduleTime.value).then(() => {
     ElMessage.success('更新成功')
-  })
-}
-
-const handleAList = (op: string) => {
-  axios.post('/api/alist/' + op).then(() => {
-    ElMessage.success('操作成功')
-    setTimeout(() => getAListStatus(), 3000)
   })
 }
 
