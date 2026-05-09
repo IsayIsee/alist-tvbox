@@ -1,4 +1,20 @@
-FROM eclipse-temurin:21-jre-alpine
+FROM ubuntu:22.04
+
+WORKDIR /app/
+
+COPY scripts/install.sh ./
+
+RUN bash install.sh
+
+ENV LC_ALL=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV TOOLCHAIN_DIR=/opt/musl
+ENV CC="$TOOLCHAIN_DIR/bin/gcc"
+ENV MAVEN_HOME=/opt/maven
+ENV JAVA_HOME=/opt/graalvm
+ENV GRAALVM_HOME=/opt/graalvm
+ENV PATH="${JAVA_HOME}/bin:${MAVEN_HOME}/bin:$TOOLCHAIN_DIR/bin:${PATH}"
 
 LABEL MAINTAINER="Har01d"
 
@@ -18,6 +34,7 @@ COPY scripts/index.sh /
 
 COPY entrypoint-standalone.sh /entrypoint.sh
 COPY init.sh /
+COPY scripts/h2-2.1.214.jar /
 
 COPY data/update.sql /
 COPY data/tvbox.zip /
@@ -31,6 +48,8 @@ COPY data/base_version /
 COPY target/atv ./
 
 COPY data/version /app_version
+
+COPY --from=builder /app/atv-cli /
 
 RUN chmod +x /entrypoint.sh
 

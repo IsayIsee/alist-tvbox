@@ -172,6 +172,6 @@ jobs:
       - name: Create manifest and push
         run: |
           docker buildx imagetools create \
-            -t ghcr.io/${{ env.OWNER }}/alist-tvbox:standalone-dev \
+            -t ghcr.io/${{ env.OWNER }}/alist-tvbox:standalone \
             $(printf 'ghcr.io/${{ env.OWNER }}/alist-tvbox@sha256:%s ' *)
         working-directory: /tmp/digests
