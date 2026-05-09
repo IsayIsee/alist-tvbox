@@ -1,11 +1,3 @@
-# 阶段 1: 编译 Go 命令行工具 (atv-cli)
-FROM golang:1.24 AS builder
-WORKDIR /app
-# 确保 scripts 或相应目录下有 atv-cli 的源码或二进制
-COPY scripts/atv-cli ./
-# 如果是源码则编译，如果是二进制则直接使用
-RUN go build -o atv-cli || cp atv-cli /app/atv-cli
-
 # 阶段 2: 获取运行时所需的 JRE
 FROM haroldli/java:21 AS corretto-jdk
 
@@ -36,7 +28,6 @@ WORKDIR /opt/atv/
 
 # 1. 从其他阶段拷贝必要组件
 COPY --from=corretto-jdk /jre $JAVA_HOME
-COPY --from=builder /app/atv-cli /
 
 # 2. 拷贝配置文件和脚本
 COPY config/alist.json /
