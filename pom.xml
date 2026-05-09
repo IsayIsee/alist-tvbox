@@ -203,8 +203,6 @@
                             <imageName>atv</imageName>
                             <mainClass>cn.har01d.alist_tvbox.AListApplication</mainClass>
                             <buildArgs>
-                                <buildArg>--static</buildArg>
-                                <buildArg>--libc=musl</buildArg>
                                 <buildArg>--enable-http</buildArg>
                                 <buildArg>--enable-https</buildArg>
                                 <buildArg>-march=compatibility</buildArg>
