@@ -172,7 +172,7 @@ public class ShareService {
         configFileService.writeFiles();
         readTvTxt();
 
-        aListLocalService.startAListServer();
+//        aListLocalService.startAListServer();
     }
 
     private void fixPath(List<Share> shares) {
@@ -594,6 +594,10 @@ public class ShareService {
 
     private void updateAListDriverType() {
         try {
+            if (environment.matchesProfiles("standalone")) {
+                log.info("standalone mode, skip updateAListDriverType");
+                return;
+            }
             log.info("update storage driver type");
             aListLocalService.executeUpdate("update x_storages set driver = 'AliyunShare' where driver = 'AliyundriveShare'");
         } catch (Exception e) {

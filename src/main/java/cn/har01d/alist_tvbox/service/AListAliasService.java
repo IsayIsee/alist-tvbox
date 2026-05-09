@@ -72,8 +72,8 @@ public class AListAliasService {
         try {
             shareService.deleteStorage(id, token);
 
-            String sql = "DELETE FROM x_storages WHERE id = " + id;
-            aListLocalService.executeUpdate(sql);
+//            String sql = "DELETE FROM x_storages WHERE id = " + id;
+//            aListLocalService.executeUpdate(sql);
 
             Alias storage = new Alias(alias);
             storage.setDisabled(true);

@@ -81,6 +81,11 @@ public class AListLocalService {
 
     @PostConstruct
     public void setup() {
+        if (environment.matchesProfiles("standalone")) {
+            log.info("standalone mode, skip AList local setup");
+            aListStatus = 2;
+            return;
+        }
         log.info("AList internal port: {}", internalPort);
         log.info("AList external port: {}", externalPort);
         setSetting("external_port", String.valueOf(externalPort), "number");

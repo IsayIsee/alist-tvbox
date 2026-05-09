@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    jdbc-url: jdbc:h2:file:/opt/atv/data/data
+    username: sa
+    password: password
+    driverClassName: org.h2.Driver
+
+logging:
+  file:
+    name: /opt/atv/log/app.log
+  level:
+    cn.har01d: info
+
+app:
+  sites:
+    - name: 本地
+      url: ${ALIST_URL:http://127.0.0.1:5244}
+      version: 3
+      searchable: true
