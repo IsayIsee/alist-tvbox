@@ -1,52 +1,43 @@
-name: 'release standalone docker'
+FROM eclipse-temurin:21-jre-alpine
 
-on:
-  workflow_dispatch:
+LABEL MAINTAINER="Har01d"
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+ENV TZ=Asia/Shanghai
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v3
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
+RUN apk add --no-cache tzdata curl && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata && \
+    mkdir -p /opt/atv/data /opt/atv/log
 
-      - name: Set APP version
-        run: |
-          export TZ=Asia/Shanghai
-          echo $((($(date +%Y) - 2023) * 366 + $(date +%j | sed 's/^0*//'))).$(date +%H%M) > data/version
-          echo ${{ github.event.head_commit.message }} >> data/version
-          cp data/version data/app_version
-          cat data/version
+WORKDIR /opt/atv/
 
-      - name: Build with Maven
-        run: mvn -B clean package -DskipTests --file pom.xml
+COPY config/alist.json /
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+COPY scripts/index.sh /
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+COPY entrypoint-standalone.sh /entrypoint.sh
+COPY init.sh /
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+COPY data/update.sql /
+COPY data/tvbox.zip /
+COPY data/index.share.zip /
+COPY data/cat.zip /
+COPY data/pg.zip /
+COPY data/zx.zip /
+COPY data/data.zip /
+COPY data/base_version /
 
-      - name: Build docker and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.standalone
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/alist-tvbox:standalone
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+COPY target/atv ./
+
+COPY data/version /app_version
+
+RUN chmod +x /entrypoint.sh
+
+COPY target/alist-tvbox-1.0.jar app.jar
+
+EXPOSE 4567
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["--spring.profiles.active=standalone"]
