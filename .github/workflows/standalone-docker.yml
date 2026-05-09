@@ -1,4 +1,4 @@
-name: 'release standalone dev docker'
+name: 'release standalone docker'
 on:
   workflow_dispatch:
     inputs:
