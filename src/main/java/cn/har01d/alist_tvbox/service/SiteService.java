@@ -91,6 +91,8 @@ public class SiteService {
             site.setIndexFile(s.getIndexFile());
             site.setVersion(s.getVersion());
             if (order == 1) {
+                log.info("OpenList Token: {}", openListToken);
+
                 aListToken = openListToken.isEmpty() ? generateToken(): openListToken;
 
                 site.setToken(aListToken);
