@@ -22,9 +22,6 @@ LABEL MAINTAINER="Har01d"
 
 WORKDIR /opt/atv/
 
-# 1. 从其他阶段拷贝必要组件
-COPY --from=corretto-jdk /jre $JAVA_HOME
-
 # 2. 拷贝配置文件和脚本
 COPY config/alist.json /
 COPY scripts/index.sh /
