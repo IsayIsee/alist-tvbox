@@ -18,8 +18,8 @@ jobs:
         include:
           - platform: linux/amd64
             os: ubuntu-latest
-          - platform: linux/arm64
-            os: ubuntu-24.04-arm64
+#          - platform: linux/arm64
+#            os: ubuntu-24.04-arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v3

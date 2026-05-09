@@ -14,9 +14,9 @@ else
 fi
 
 if [ "$platform" = "aarch64" ]; then
-  wget -O graalvm.tgz https://download.oracle.com/graalvm/17/latest/graalvm-jdk-17_linux-aarch64_bin.tar.gz
+  wget -O graalvm.tgz https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_linux-aarch64_bin.tar.gz
 else
-  wget -O graalvm.tgz https://download.oracle.com/graalvm/17/latest/graalvm-jdk-17_linux-x64_bin.tar.gz
+  wget -O graalvm.tgz https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-17.0.9/graalvm-community-jdk-17.0.9_linux-x64_bin.tar.gz
 fi
 
 tar xf graalvm.tgz
