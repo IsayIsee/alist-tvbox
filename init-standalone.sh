@@ -75,7 +75,7 @@ init() {
 }
 
 upgrade_h2() {
-  if [ -f /data/h2.version.txt ]; then1
+  if [ -f /data/h2.version.txt ]; then
     return
   fi
   echo "try to upgrade database"
