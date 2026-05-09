@@ -8,7 +8,22 @@ LABEL MAINTAINER="Har01d"
 
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
-    mkdir -p /opt/atv/data /opt/atv/log
+    apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-17-jre-headless \
+        unzip \
+        wget \
+        sqlite3 \
+        nginx \
+        busybox-extras \
+        curl \
+        ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /opt/atv/data /opt/atv/log \
+             /opt/alist/data \
+             /etc/nginx/http.d \
+             /data/index && \
+    mkdir -p /jre/bin && ln -s /usr/bin/java /jre/bin/java && \
+    ln -sf $(which busybox-extras) /bin/busybox-extras
 
 WORKDIR /opt/atv/
 

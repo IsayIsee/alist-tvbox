@@ -44,7 +44,7 @@ jobs:
         id: cache-web
         uses: actions/cache@v4 # 升级到 v4
         with:
-          path: ./web-ui/dist
+          path: ./src/main/resources/static
           # 移除 PLATFORM_KEY，跨平台共享 Web 缓存
           key: web-${{ hashFiles('web-ui/src/**', 'web-ui/package.json') }}
 
