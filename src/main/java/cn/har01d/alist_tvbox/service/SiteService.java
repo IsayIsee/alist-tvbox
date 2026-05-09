@@ -69,6 +69,9 @@ public class SiteService {
                 .build();
     }
 
+    @Value("${OpenListToken:}")
+    private String openListToken;
+
     @PostConstruct
     public void init() {
         if (siteRepository.count() > 0) {
@@ -88,7 +91,8 @@ public class SiteService {
             site.setIndexFile(s.getIndexFile());
             site.setVersion(s.getVersion());
             if (order == 1) {
-                aListToken = generateToken();
+                aListToken = openListToken.isEmpty() ? generateToken(): openListToken;
+
                 site.setToken(aListToken);
                 aListLocalService.executeUpdate("UPDATE x_setting_items SET value='" + aListToken + "' WHERE key='token'");
             }
