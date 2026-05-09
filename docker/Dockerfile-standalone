@@ -1,6 +1,8 @@
 # 阶段 2: 获取运行时所需的 JRE
 FROM haroldli/java:21 AS corretto-jdk
 
+ENV INSTALL=native NATIVE=true
+
 # 阶段 3: 最终运行镜像 (使用 Ubuntu)
 FROM ubuntu:22.04
 LABEL MAINTAINER="Har01d"
