@@ -74,13 +74,13 @@ upgrade_h2() {
   file=/opt/atv/data/data
   [ -f /data/atv.mv.db ] && file=/data/atv
   echo "export database $file"
-  /jre/bin/java -cp /h2-2.1.214.jar org.h2.tools.Script \
+  /jre/bin/java -cp /h2.jar org.h2.tools.RunScript \
   -url jdbc:h2:file:$file \
   -user sa -password password \
   -script backup.sql && \
   echo "import database" && \
   rm -f ${file}.mv.db ${file}.trace.db && \
-  /jre/bin/java -cp /opt/atv/BOOT-INF/lib/h2-2.3.232.jar org.h2.tools.RunScript \
+  /jre/bin/java -cp /h2.jar org.h2.tools.RunScript \
   -url jdbc:h2:file:$file \
   -user sa -password password \
   -script backup.sql && \
