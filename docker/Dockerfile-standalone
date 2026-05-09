@@ -2,6 +2,12 @@ FROM ubuntu:22.04
 
 WORKDIR /app/
 
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY scripts/install.sh ./
 
 RUN bash install.sh
@@ -19,6 +25,10 @@ ENV PATH="${JAVA_HOME}/bin:${MAVEN_HOME}/bin:$TOOLCHAIN_DIR/bin:${PATH}"
 ENV INSTALL=native NATIVE=true
 
 LABEL MAINTAINER="Har01d"
+
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    mkdir -p /opt/atv/data /opt/atv/log
 
 WORKDIR /opt/atv/
 
