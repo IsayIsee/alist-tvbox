@@ -1,41 +1,51 @@
+# 阶段 1: 编译 Go 命令行工具 (atv-cli)
+FROM golang:1.24 AS builder
+WORKDIR /app
+# 确保 scripts 或相应目录下有 atv-cli 的源码或二进制
+COPY scripts/atv-cli ./
+# 如果是源码则编译，如果是二进制则直接使用
+RUN go build -o atv-cli || cp atv-cli /app/atv-cli
+
+# 阶段 2: 获取运行时所需的 JRE
+FROM haroldli/java:21 AS corretto-jdk
+
+# 阶段 3: 最终运行镜像 (使用 Ubuntu)
 FROM ubuntu:22.04
-
-WORKDIR /app/
-
-COPY scripts/install.sh ./
-
-RUN bash install.sh
-
-ENV LC_ALL=en_US.UTF-8
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US.UTF-8
-ENV TOOLCHAIN_DIR=/opt/musl
-ENV CC="$TOOLCHAIN_DIR/bin/gcc"
-ENV MAVEN_HOME=/opt/maven
-ENV JAVA_HOME=/opt/graalvm
-ENV GRAALVM_HOME=/opt/graalvm
-ENV PATH="${JAVA_HOME}/bin:${MAVEN_HOME}/bin:$TOOLCHAIN_DIR/bin:${PATH}"
-
 LABEL MAINTAINER="Har01d"
 
-ENV TZ=Asia/Shanghai
+# 设置环境变量
+ENV JAVA_HOME=/jre \
+    DOCKER=true \
+    TZ=Asia/Shanghai \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-RUN apk add --no-cache tzdata curl && \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+# Ubuntu 系统下安装基础工具 (替换之前的 apk 指令)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    tzdata \
+    ca-certificates && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
-    apk del tzdata && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     mkdir -p /opt/atv/data /opt/atv/log
 
 WORKDIR /opt/atv/
 
+# 1. 从其他阶段拷贝必要组件
+COPY --from=corretto-jdk /jre $JAVA_HOME
+COPY --from=builder /app/atv-cli /
+
+# 2. 拷贝配置文件和脚本
 COPY config/alist.json /
-
 COPY scripts/index.sh /
-
 COPY entrypoint-standalone.sh /entrypoint.sh
 COPY init.sh /
 COPY scripts/h2-2.1.214.jar /
 
+# 3. 拷贝数据文件 [cite: 5]
 COPY data/update.sql /
 COPY data/tvbox.zip /
 COPY data/index.share.zip /
@@ -44,19 +54,15 @@ COPY data/pg.zip /
 COPY data/zx.zip /
 COPY data/data.zip /
 COPY data/base_version /
-
-COPY target/atv ./
-
 COPY data/version /app_version
 
-COPY --from=builder /app/atv-cli /
+# 4. 拷贝 Java 应用 [cite: 5]
+COPY target/atv ./
+COPY target/alist-tvbox-1.0.jar app.jar
 
 RUN chmod +x /entrypoint.sh
-
-COPY target/alist-tvbox-1.0.jar app.jar
 
 EXPOSE 4567
 
 ENTRYPOINT ["/entrypoint.sh"]
-
 CMD ["--spring.profiles.active=standalone"]
