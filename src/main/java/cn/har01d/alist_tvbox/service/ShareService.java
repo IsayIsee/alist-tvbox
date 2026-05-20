@@ -2,6 +2,7 @@ package cn.har01d.alist_tvbox.service;
 
 import cn.har01d.alist_tvbox.config.AppProperties;
 import cn.har01d.alist_tvbox.domain.DriverType;
+import cn.har01d.alist_tvbox.dto.ParseRequest;
 import cn.har01d.alist_tvbox.dto.OpenApiDto;
 import cn.har01d.alist_tvbox.dto.ShareLink;
 import cn.har01d.alist_tvbox.dto.SharesDto;
@@ -98,6 +99,7 @@ public class ShareService {
     private final ConfigFileService configFileService;
     private final PikPakService pikPakService;
     private final DriverAccountService driverAccountService;
+    private final OfflineDownloadService offlineDownloadService;
     private final RestTemplate restTemplate;
     private final Environment environment;
 
@@ -118,6 +120,7 @@ public class ShareService {
                         AListLocalService aListLocalService,
                         ConfigFileService configFileService,
                         PikPakService pikPakService,
+                        OfflineDownloadService offlineDownloadService,
                         RestTemplateBuilder builder,
                         Environment environment,
                         ObjectMapper objectMapper) {
@@ -134,6 +137,7 @@ public class ShareService {
         this.aListLocalService = aListLocalService;
         this.configFileService = configFileService;
         this.pikPakService = pikPakService;
+        this.offlineDownloadService = offlineDownloadService;
         this.environment = environment;
         this.objectMapper = objectMapper;
         this.restTemplate = builder.rootUri("http://localhost:" + aListLocalService.getInternalPort()).build();
@@ -420,7 +424,7 @@ public class ShareService {
                     } else {
                         share.setShareId(parts[1]);
                     }
-                    
+
                     // Special handling for STRM type (11:STRM)
                     if (share.getType() == 11 && "STRM".equals(share.getShareId())) {
                         // For STRM, parts[2] is the Base64 encoded cookie JSON
@@ -496,9 +500,9 @@ public class ShareService {
             if (share.isTemp()) {
                 continue;
             }
-            
+
             sb.append(getMountPath(share).replace(" ", "")).append("  ");
-            
+
             // Special handling for STRM type (type 11)
             if (share.getType() == 11) {
                 sb.append(share.getType()).append(":STRM").append("  ");
@@ -512,7 +516,7 @@ public class ShareService {
                         .append(StringUtils.isBlank(share.getFolderId()) ? "root" : share.getFolderId()).append("  ")
                         .append(share.getPassword());
             }
-            
+
             sb.append("\n");
         }
 
@@ -769,13 +773,27 @@ public class ShareService {
         return "";
     }
 
+    private String normalizeBaiduShareId(String shareId) {
+        if (StringUtils.isBlank(shareId)) {
+            return shareId;
+        }
+        if (shareId.length() == 23 && shareId.startsWith("1")) {
+            return shareId;
+        }
+        if (shareId.length() == 22 && !shareId.startsWith("1")) {
+            return "1" + shareId;
+        }
+        return shareId;
+    }
+
     public boolean parseLink(Share share) {
         String url = share.getShareId();
         if (!url.startsWith("http")) {
             String[] parts = url.split("@");
             if (parts.length == 3 || (parts.length == 2 && url.endsWith("@"))) {
-                share.setType(Integer.parseInt(parts[0]));
-                share.setShareId(parts[1]);
+                int type = Integer.parseInt(parts[0]);
+                share.setType(type);
+                share.setShareId(type == 10 ? normalizeBaiduShareId(parts[1]) : parts[1]);
                 if (parts.length > 2) {
                     share.setPassword(parts[2]);
                 }
@@ -908,7 +926,7 @@ public class ShareService {
         m = SHARE_BD_LINK2.matcher(url);
         if (m.find()) {
             share.setType(10);
-            share.setShareId(m.group(1));
+            share.setShareId(normalizeBaiduShareId(m.group(1)));
             share.setPassword(parsePassword(url));
             return true;
         }
@@ -967,8 +985,13 @@ public class ShareService {
     }
 
     public String add(ShareLink dto) {
+        String link = StringUtils.trimToEmpty(URLDecoder.decode(dto.getLink(), StandardCharsets.UTF_8));
+        if (isOfflineDownloadLink(link)) {
+            return offlineDownloadService.downloadPath(new ParseRequest(link));
+        }
+
         Share share = new Share();
-        share.setShareId(URLDecoder.decode(dto.getLink(), StandardCharsets.UTF_8));
+        share.setShareId(link);
         share.setPassword(dto.getCode());
         if (!parseLink(share)) {
             log.warn("无法识别的分享链接: {}", share.getShareId());
@@ -1004,6 +1027,11 @@ public class ShareService {
         }
 
         return path;
+    }
+
+    private boolean isOfflineDownloadLink(String link) {
+        String value = StringUtils.lowerCase(link);
+        return value.startsWith("magnet:") || value.startsWith("ed2k:");
     }
 
     public Share create(Share share) {
@@ -1081,7 +1109,7 @@ public class ShareService {
                 throw new BadRequestException("分享ID不能为空");
             }
         }
-        
+
         // STRM 类型使用 cookie 字段存储配置 JSON
         if (share.getType() == 11) {
             if (StringUtils.isBlank(share.getCookie())) {
@@ -1117,7 +1145,7 @@ public class ShareService {
         if (share.getType() == 11) {
             return;
         }
-        
+
         if (StringUtils.isBlank(share.getFolderId())) {
             if (share.getType() == 3 || share.getType() == 5 || share.getType() == 7) {
                 share.setFolderId("0");

@@ -11,6 +11,10 @@ import cn.har01d.alist_tvbox.entity.DriverAccountRepository;
 import cn.har01d.alist_tvbox.entity.EmbyRepository;
 import cn.har01d.alist_tvbox.entity.FeiniuRepository;
 import cn.har01d.alist_tvbox.entity.JellyfinRepository;
+import cn.har01d.alist_tvbox.entity.Plugin;
+import cn.har01d.alist_tvbox.entity.PluginFilter;
+import cn.har01d.alist_tvbox.entity.PluginFilterRepository;
+import cn.har01d.alist_tvbox.entity.PluginRepository;
 import cn.har01d.alist_tvbox.entity.Setting;
 import cn.har01d.alist_tvbox.entity.SettingRepository;
 import cn.har01d.alist_tvbox.entity.ShareRepository;
@@ -93,6 +97,8 @@ public class SubscriptionService {
     private final EmbyRepository embyRepository;
     private final FeiniuRepository feiniuRepository;
     private final JellyfinRepository jellyfinRepository;
+    private final PluginRepository pluginRepository;
+    private final PluginFilterRepository pluginFilterRepository;
     private final AListLocalService aListLocalService;
     private final ConfigFileService configFileService;
     private final TenantService tenantService;
@@ -118,6 +124,8 @@ public class SubscriptionService {
                                EmbyRepository embyRepository,
                                FeiniuRepository feiniuRepository,
                                JellyfinRepository jellyfinRepository,
+                               PluginRepository pluginRepository,
+                               PluginFilterRepository pluginFilterRepository,
                                AListLocalService aListLocalService,
                                ConfigFileService configFileService,
                                TenantService tenantService,
@@ -140,6 +148,8 @@ public class SubscriptionService {
         this.embyRepository = embyRepository;
         this.feiniuRepository = feiniuRepository;
         this.jellyfinRepository = jellyfinRepository;
+        this.pluginRepository = pluginRepository;
+        this.pluginFilterRepository = pluginFilterRepository;
         this.aListLocalService = aListLocalService;
         this.configFileService = configFileService;
         this.tenantService = tenantService;
@@ -607,6 +617,14 @@ public class SubscriptionService {
             config.put("headers", List.of(buildHeader("img\\d+.doubanio.com")));
         }
 
+        if (config.containsKey("parses")) {
+            List<Map<String, Object>> parses = new ArrayList<>((List<Map<String, Object>>) config.get("parses"));
+            parses.addFirst(addXiaMi());
+            config.put("parses", parses);
+        } else {
+            config.put("parses", List.of(addXiaMi()));
+        }
+
 //        addRules(config);
 
         log.debug("{} {}", apiUrl, config);
@@ -615,6 +633,14 @@ public class SubscriptionService {
 
     private Map<String, Object> buildHeader(String host) {
         return Map.of("host", host, "header", Map.of("Referer", "https://movie.douban.com"));
+    }
+
+    private Map<String, Object> addXiaMi() {
+        return buildParse("虾米", "https://jx.xmflv.com/?url=", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.57");
+    }
+
+    private Map<String, Object> buildParse(String name, String url, String userAgent) {
+        return Map.of("name", name, "url", url, "type", 0, "ext", Map.of("header", Map.of("User-Agent", userAgent)));
     }
 
     private void replaceAliToken(Map<String, Object> config) {
@@ -1125,6 +1151,8 @@ public class SubscriptionService {
                 log.warn("", e);
             }
         }
+
+        addPluginSites(config, id, token);
     }
 
     public Map<String, Boolean> getCapabilities() {
@@ -1139,17 +1167,26 @@ public class SubscriptionService {
         return map;
     }
 
+    private Map<String, Object> readLocalProxyConfig() {
+        Map<String, Map<String, Object>> config = appProperties.getLocalProxyConfig();
+        if (config == null || config.isEmpty()) {
+            return new HashMap<>(AppProperties.defaultLocalProxyConfig());
+        }
+        return new HashMap<>(AppProperties.copyLocalProxyConfig(config));
+    }
+
     private Map<String, Object> buildSite(String token, String uid, String key, String name) throws IOException {
-        Map<String, Object> site = new HashMap<>();
         String url = readHostAddress("");
+        Map<String, Object> site = new HashMap<>();
         site.put("key", key);
         site.put("api", key);
         site.put("name", name);
         site.put("type", 3);
-        Map<String, String> map = new HashMap<>();
+        Map<String, Object> map = new HashMap<>();
         map.put("api", url);
         map.put("token", token.isBlank() ? "-" : token);
         map.put("uid", uid);
+        map.put("local_proxy_config", readLocalProxyConfig());
         String ext = objectMapper.writeValueAsString(map).replaceAll("\\s", "");
         ext = Base64.getEncoder().encodeToString(ext.getBytes());
         site.put("ext", ext);
@@ -1166,6 +1203,126 @@ public class SubscriptionService {
             site.put("style", style);
         }
         return site;
+    }
+
+    private void addPluginSites(Map<String, Object> config, int index, String token) {
+        List<Map<String, Object>> sites = (List<Map<String, Object>>) config.get("sites");
+        for (Plugin plugin : pluginRepository.findByEnabledTrueOrderBySortOrderAscIdAsc()) {
+            try {
+                sites.add(index++, buildPluginSite(plugin, token));
+            } catch (JsonProcessingException e) {
+                log.warn("add plugin failed: {}", plugin.getName(), e);
+            }
+        }
+    }
+
+    private Map<String, Object> buildPluginSite(Plugin plugin, String token) throws JsonProcessingException {
+        Map<String, Object> site = new HashMap<>();
+        site.put("filterable", 1);
+        site.put("quickSearch", 1);
+        site.put("name", plugin.getName());
+        site.put("changeable", 0);
+        site.put("api", readHostAddress("") + "/Atvp.py");
+        site.put("type", 3);
+        site.put("key", plugin.getName());
+        site.put("searchable", 1);
+        Map<String, Object> map = new HashMap<>();
+        String url = readHostAddress("");
+        map.put("api", url);
+        String jar = url + "/spring.jar";
+        site.put("jar", jar);
+        String source = readHostAddress("") + "/plugins/" + getCurrentOrFirstToken() + "/" + plugin.getId() + ".txt";
+        map.put("source", source);
+        map.put("token", token.isBlank() ? "-" : token);
+        map.put("local_proxy_config", new HashMap<>());
+//        map.put("local_proxy_config", readLocalProxyConfig());
+        if (StringUtils.isNotBlank(plugin.getExtend())) {
+            map.put("data", plugin.getExtend());
+        }
+        // 每个插件站点只下发与自己作用域匹配的过滤器
+        List<Map<String, Object>> filters = buildPluginFilters(plugin);
+        if (!filters.isEmpty()) {
+            map.put("filters", filters);
+        }
+        String ext = objectMapper.writeValueAsString(map);
+        ext = Base64.getEncoder().encodeToString(ext.getBytes());
+        site.put("ext", ext);
+        return site;
+    }
+
+    private List<Map<String, Object>> buildPluginFilters(Plugin plugin) {
+        List<Map<String, Object>> filters = new ArrayList<>();
+        String token = getCurrentOrFirstToken();
+        String address = readHostAddress("");
+        for (PluginFilter filter : pluginFilterRepository.findByEnabledTrueOrderBySortOrderAscIdAsc()) {
+            if (!isPluginFilterInScope(filter, plugin)) {
+                continue;
+            }
+            List<String> stages = parsePluginFilterStages(filter.getStages());
+            if (stages.isEmpty()) {
+                continue;
+            }
+            Map<String, Object> map = new HashMap<>();
+            map.put("name", filter.getName());
+            map.put("source", address + "/plugin-filters/" + token + "/" + filter.getId() + ".py?v=" + getPluginFilterRevision(filter));
+            map.put("stages", stages);
+            map.put("error_strategy", StringUtils.defaultIfBlank(filter.getErrorStrategy(), "skip"));
+            if (StringUtils.isNotBlank(filter.getExtend())) {
+                map.put("data", filter.getExtend());
+            }
+            filters.add(map);
+        }
+        return filters;
+    }
+
+    private boolean isPluginFilterInScope(PluginFilter filter, Plugin plugin) {
+        String scope = StringUtils.defaultIfBlank(filter.getPluginScope(), "all");
+        if ("all".equals(scope)) {
+            return true;
+        }
+        // 过滤器按插件 ID 生效，避免插件改名后作用范围失效
+        Set<String> pluginIds = parsePluginFilterPluginIds(filter.getPluginIds());
+        String pluginId = plugin.getId() == null ? "" : plugin.getId().toString();
+        boolean selected = pluginIds.contains(pluginId);
+        if ("include".equals(scope)) {
+            return selected;
+        }
+        if ("exclude".equals(scope)) {
+            return !selected;
+        }
+        return true;
+    }
+
+    private Set<String> parsePluginFilterPluginIds(String pluginIds) {
+        if (StringUtils.isBlank(pluginIds)) {
+            return Set.of();
+        }
+        return Arrays.stream(pluginIds.split(","))
+                .map(StringUtils::trimToEmpty)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toSet());
+    }
+
+    private String getPluginFilterRevision(PluginFilter filter) {
+        if (filter.getLastCheckedAt() != null) {
+            return String.valueOf(filter.getLastCheckedAt().toInstant().toEpochMilli());
+        }
+        if (filter.getVersion() != null) {
+            return String.valueOf(filter.getVersion());
+        }
+        return String.valueOf(filter.getId());
+    }
+
+    private List<String> parsePluginFilterStages(String stages) {
+        if (StringUtils.isBlank(stages)) {
+            return List.of();
+        }
+        List<String> list = Arrays.stream(stages.split(","))
+                .map(StringUtils::trimToEmpty)
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .collect(Collectors.toList());
+        return list;
     }
 
     private String loadConfigJson(String url) {

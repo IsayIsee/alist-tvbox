@@ -1402,12 +1402,14 @@ public class TvBoxService {
             throw new BadRequestException("找不到文件 " + path);
         }
 
+        boolean useProxy = false;
         url = fixHttp(fsDetail.getRawUrl());
         if ("com.fongmi.android.tv".equals(client)) {
             // ignore
         } else if ((fsDetail.getProvider().contains("Aliyundrive") && !fsDetail.getRawUrl().contains("115cdn.net"))
                 || (("open".equals(client) || "node".equals(client)) && fsDetail.getProvider().contains("115"))) {
             url = buildProxyUrl(site, name, path);
+            useProxy = true;
             log.info("play url: {}", url);
         }
 
@@ -1432,8 +1434,9 @@ public class TvBoxService {
 
         if (url.contains("#proxy=0")) {
             // do nothing
-        } else if (isUseProxy(url) && !"client-proxy".equals(type)) {
+        } else if (isUseProxy(url) && !shouldSkipBackendProxy(type, driverType)) {
             url = buildProxyUrl(site, name, path);
+            useProxy = true;
             result.put("url", url);
         } else if (driverType == DriverType.QUARK) {
             var account = getDriverAccount(url, driverType);
@@ -1451,12 +1454,15 @@ public class TvBoxService {
         } else if (driverType == DriverType.BAIDU) {
             result.put("header", Map.of("User-Agent", "netdisk"));
         } else if (url.contains("ali") || driverType == DriverType.ALI) {
-            result.put("format", "application/octet-stream");
             result.put("header", Map.of("User-Agent", appProperties.getUserAgent(), "Referer", Constants.ALIPAN, "origin", Constants.ALIPAN));
         }
 
         if ("UCTV".equals(fsDetail.getProvider())) {
             result.put("header", Map.of("User-Agent", Constants.USER_AGENT));
+        }
+
+        if (!useProxy) {
+            result.put("name", fsDetail.getName());
         }
 
         if (!getSub) {
@@ -1487,6 +1493,44 @@ public class TvBoxService {
         } else {
             return driverAccountRepository.findByTypeAndMasterTrue(type).orElse(null);
         }
+    }
+
+    private boolean shouldSkipBackendProxy(String type, DriverType driverType) {
+        return "client-proxy".equals(type) && isLocalProxyEnabled(driverType);
+    }
+
+    private boolean isLocalProxyEnabled(DriverType driverType) {
+        if (driverType == null || driverType == DriverType.UNKNOWN) {
+            return false;
+        }
+
+        Map<String, Map<String, Object>> config = appProperties.getLocalProxyConfig();
+        if (config == null || config.isEmpty()) {
+            return false;
+        }
+
+        Map<String, Object> item = config.get(driverType.name());
+        if (item == null || item.isEmpty()) {
+            return false;
+        }
+
+        boolean enabled = !(item.get("enabled") instanceof Boolean value) || value;
+        int concurrency = readInt(item.get("concurrency"), 1);
+        return enabled && concurrency > 1;
+    }
+
+    private int readInt(Object value, int defaultValue) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && StringUtils.isNotBlank(text)) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException e) {
+                log.debug("invalid integer value: {}", text, e);
+            }
+        }
+        return defaultValue;
     }
 
     private boolean isUseProxy(String url) {
@@ -1655,6 +1699,9 @@ public class TvBoxService {
     }
 
     public MovieList getDetail(String ac, String tid) {
+        if (tid.contains("%24")) {
+            tid = URLDecoder.decode(tid, StandardCharsets.UTF_8);
+        }
         if (!tid.contains("$")) {
             return getDetail(ac, Integer.parseInt(tid));
         }
@@ -2489,24 +2536,29 @@ public class TvBoxService {
 
     // AList-TvBox proxy
     private String buildProxyUrl(Site site, String name, String path) {
-        String p = "/p/" + subscriptionService.getCurrentToken() + "/" + site.getId() + "@" + proxyService.generateProxyUrl(site, path);
-        return ServletUriComponentsBuilder.fromCurrentRequest()
-                .scheme(appProperties.isEnableHttps() && !Utils.isLocalAddress() ? "https" : "http") // nginx https
-                .replacePath(p)
-                .replaceQuery("name=" + encodeUrl(name))
-                .build()
-                .toUriString();
-    }
-
-    // AList-TvBox proxy
-    private String buildProxyUrl(Site site, String path, Video item) {
-        String p = "/p/" + subscriptionService.getCurrentToken() + "/" + site.getId() + "@" + proxyService.generateProxyUrl(site, path, item);
+        String p = buildProxyPath(site.getId(), proxyService.generateProxyUrl(site, path), name);
         return ServletUriComponentsBuilder.fromCurrentRequest()
                 .scheme(appProperties.isEnableHttps() && !Utils.isLocalAddress() ? "https" : "http") // nginx https
                 .replacePath(p)
                 .replaceQuery("")
                 .build()
                 .toUriString();
+    }
+
+    // AList-TvBox proxy
+    private String buildProxyUrl(Site site, String path, Video item) {
+        String p = buildProxyPath(site.getId(), proxyService.generateProxyUrl(site, path, item), path);
+        return ServletUriComponentsBuilder.fromCurrentRequest()
+                .scheme(appProperties.isEnableHttps() && !Utils.isLocalAddress() ? "https" : "http") // nginx https
+                .replacePath(p)
+                .replaceQuery("")
+                .build()
+                .toUriString();
+    }
+
+    private String buildProxyPath(int siteId, int proxyId, String name) {
+        String suffix = StringUtils.endsWithIgnoreCase(name, ".iso") ? ".iso" : "";
+        return "/p/" + subscriptionService.getCurrentToken() + "/" + siteId + "@" + proxyId + suffix;
     }
 
     // AList proxy
